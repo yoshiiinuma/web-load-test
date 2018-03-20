@@ -204,8 +204,7 @@ const toSecs = (a) => {
   let ms = Math.floor(a[1] / 1000000);
   secs += ms / 1000;
 
-  return secs;
-  //return strHrtime(a) + ' => ' + secs;
+  return secs.toFixed(3);
 }
 
 const strHrtime = (a) => {
@@ -293,9 +292,8 @@ const report = (results) => {
   let e999 = initSummaryData('Fatal');
   let other = initSummaryData('Other');
 
-  console.log('-- Printing Results ------------------------------------------------------');
   results.map((r) => {
-    console.log(r);
+    //console.log(r);
     all.push(r);
     if (r.statusCode) {
       if (r.statusCode === 200) {
