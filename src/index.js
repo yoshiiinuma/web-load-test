@@ -13,6 +13,7 @@ const usage = () => {
   console.log("USAGE: node dist/index.js <FILE> [OPTION]...");
   console.log("");
   console.log("   FILE: Contains the list of URLs");
+  console.log("");
   console.log("   OPTIONS:");
   console.log("   -t or --timeout <SECS>:   Timeouts slow requests; DEFAULT " + DEFAULT_TIMEOUT);
   console.log("   -r or --rps <NUM>:        Specifies the number of requests per second; DEFAULT " + DEFAULT_RPS);
@@ -36,6 +37,12 @@ var duration = DEFAULT_DURATION;
 var limit;
 var exclude = [];
 var debug = false;
+
+if (!fs.existsSync(filename)) {
+  console.log('File Not Found: ' + filename + "\n");
+  usage();
+  process.exit();
+}
 
 if (process.argv.length > 3) {
   for (let i = 3; i < process.argv.length; i++) {
@@ -111,6 +118,20 @@ const randomSelect = (links, limit) => {
   });
 };
 
+const filter = (links, regExclude) => {
+  return new Promise((resolve, reject) => {
+    if (!regExclude) return resolve(links);
+
+    let r = [];
+
+    for(let l of links) {
+      if (regExclude.test(l)) continue;
+      r.push(l);
+    }
+    return resolve(r);
+  });
+};
+
 const makeRequest = ((opts = {}) => {
   const timeout = opts.timeout || DEFAULT_TIMEOUT;
   const debug = ('debug' in opts) ? opts.debug : false;
@@ -173,7 +194,7 @@ const bulkRequest = async (links, opts = {}) => {
 
   while (loop) {
     let link = links[Math.floor(Math.random() * len)];
-    if (regExclude && regExclude.test(link)) continue;
+    //if (regExclude && regExclude.test(link)) continue;
     requests.push(makeRequest(link));
     cnt++;
     if (cnt >= limit) loop = false;
@@ -338,6 +359,7 @@ const report = (results) => {
 
 readLinks(filename)
   //.then((links) => randomSelect(links, numOfUrls))
+  .then((links) => filter(links, options.regExclude))
   .then((links) => bulkRequest(links, options))
   .then((results) => { report(results) })
   .catch((err) => {
