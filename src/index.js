@@ -18,6 +18,7 @@ const usage = () => {
   console.log("   -r or --rps <NUM>:        Specifies the number of requests per second; DEFAULT " + DEFAULT_RPS);
   console.log("   -u or --duration <SECS>:  Specifies the duration of the test; DEFAULT " + DEFAULT_DURATION);
   console.log("   -m or --max-req <NUM>:    Specifies the maxinum number of the requests");
+  console.log("   -e or --exclude <WORD>:   Specifies a keyword to filter out links");
   console.log("   -D or --DEBUG:            Prints debug messages");
   console.log("   -h or --help:             Shows this usage");
   console.log("");
@@ -33,6 +34,7 @@ var timeout = DEFAULT_TIMEOUT * 1000;
 var rps = DEFAULT_RPS;
 var duration = DEFAULT_DURATION;
 var limit;
+var exclude = [];
 var debug = false;
 
 if (process.argv.length > 3) {
@@ -54,6 +56,10 @@ if (process.argv.length > 3) {
       limit = Number(process.argv[i+1]);
       i++;
     }
+    if (arg === '-e' || arg === '--exclude') {
+      exclude.push(process.argv[i+1]);
+      i++;
+    }
     if (arg === '-D' || arg === '--DEBUG') {
       debug = true;
     }
@@ -69,6 +75,10 @@ if (limit > rps * duration) limit = rps * duration;
 
 var options = { rps, duration, limit, timeout, debug };
 if (debug) console.log(options);
+
+if (exclude.length > 0) {
+  options['regExclude'] = new RegExp('(' + exclude.join('|') + ')');
+}
 
 const readLinks = (file) => {
   return new Promise((resolve, reject) => {
@@ -155,8 +165,7 @@ const bulkRequest = async (links, opts = {}) => {
   const rps = opts.rps || 1;
   const debug = ('debug' in opts) ? opts.debug : false;
   const len = links.length;
-  var keywords = ['\.pdf'];
-  const regExclude = new RegExp('(' + keywords.join('|') + ')');
+  const regExclude = opts.regExclude;
 
   let requests = [];
   let loop = true;
@@ -164,7 +173,7 @@ const bulkRequest = async (links, opts = {}) => {
 
   while (loop) {
     let link = links[Math.floor(Math.random() * len)];
-    if (regExclude.test(link)) continue;
+    if (regExclude && regExclude.test(link)) continue;
     requests.push(makeRequest(link));
     cnt++;
     if (cnt >= limit) loop = false;
