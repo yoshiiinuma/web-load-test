@@ -2,6 +2,7 @@
 import fs from 'fs';
 import readline from 'readline';
 import rp from 'request-promise';
+import FastPriorityQueue from 'fastpriorityqueue';
 
 const DEFAULT_TIMEOUT = 30;
 const DEFAULT_RPS = 5;
@@ -31,7 +32,7 @@ const filename = process.argv[2];
 var timeout = DEFAULT_TIMEOUT * 1000;
 var rps = DEFAULT_RPS;
 var duration = DEFAULT_DURATION;
-var limit = DEFAULT_RPS * DEFAULT_DURATION;
+var limit;
 var debug = true;
 
 if (process.argv.length > 3) {
@@ -63,6 +64,7 @@ if (process.argv.length > 3) {
   }
 }
 
+if (!limit) limit = rps * duration;
 if (limit > rps * duration) limit = rps * duration;
 
 var options = { rps, duration, limit, timeout, debug };
@@ -89,7 +91,7 @@ const randomSelect = (links, limit) => {
     let i = len;
     const min = len - limit;
     while (i > min) {
-      let j = Math.floor(Math.random() * i); 
+      let j = Math.floor(Math.random() * i);
       i--;
       let temp =  links[i];
       links[i] = links[j];
@@ -108,18 +110,18 @@ const makeRequest = ((opts = {}) => {
     seq++;
     return new Promise((resolve, reject) => {
       let reqId = seq;
-      let startTime = process.hrtime(); 
+      let startTime = process.hrtime();
       let statusCode;
       if (debug) console.log('SENDING: ' + reqId + ' '  + uri);
       rp({ uri, timeout, resolveWithFullResponse: true })
         .then((response) => {
-          let latency = process.hrtime(startTime); 
+          let latency = process.hrtime(startTime);
           statusCode = response.statusCode;
           if (debug) console.log('  DONE: ' + statusCode + ' ' + reqId + ' ' + uri);
           return resolve({ reqId, uri, latency, statusCode });
         })
         .catch(err => {
-          let latency = process.hrtime(startTime); 
+          let latency = process.hrtime(startTime);
           if (err.statusCode) {
             statusCode = err.statusCode;
             if (debug) console.log('  ERROR: ' + statusCode + ' ' + reqId + ' '  + uri);
@@ -153,6 +155,8 @@ const bulkRequest = async (links, opts = {}) => {
   const rps = opts.rps || 1;
   const debug = ('debug' in opts) ? opts.debug : false;
   const len = links.length;
+  var keywords = ['\.pdf'];
+  const regExclude = new RegExp('(' + keywords.join('|') + ')');
 
   let requests = [];
   let loop = true;
@@ -160,6 +164,7 @@ const bulkRequest = async (links, opts = {}) => {
 
   while (loop) {
     let link = links[Math.floor(Math.random() * len)];
+    if (regExclude.test(link)) continue;
     requests.push(makeRequest(link));
     cnt++;
     if (cnt >= limit) loop = false;
@@ -179,7 +184,7 @@ const bulkRequest = async (links, opts = {}) => {
  */
 const compareHrtime = (a, b) => {
   if (a[0] === b[0]) {
-    if (a[1] === b[1]) return 0; 
+    if (a[1] === b[1]) return 0;
     if (a[1] > b[1]) {
       return 1;
     } else {
@@ -198,8 +203,8 @@ const toSecs = (a) => {
   let ms = Math.floor(a[1] / 1000000);
   secs += ms / 1000;
 
-  //return secs;
-  return strHrtime(a) + ' => ' + secs;
+  return secs;
+  //return strHrtime(a) + ' => ' + secs;
 }
 
 const strHrtime = (a) => {
@@ -233,11 +238,14 @@ const divideHrtime = (hr, n) => {
   return [secs, ns];
 }
 
-const initSummary = () => {
+const initSummary = (name) => {
+  const title = name;
   let totalCnt = 0;
   let totalLatency = [0, 0];
   let max = [0, 0];
   let min = [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+  //let slow = new FastPriorityQueue((a, b) => { return compareHrtime(a.latency, b.latency) });
+  let slow = new FastPriorityQueue((a, b) => { return toSecs(a.latency) > toSecs(b.latency) });
 
   return {
     push: (r) => {
@@ -250,27 +258,74 @@ const initSummary = () => {
       if (compareHrtime(max, cur) < 0) {
         max = cur;
       }
+      slow.add(r);
+    },
+    showSlow: (limit = 10) => {
+      let cnt = 0;
+      if (limit > slow.size) limit = slow.size;
+
+      console.log('---< Slow Requests >----------------------------------------------------------');
+      while (!slow.isEmpty() && cnt < limit) {
+        let r = slow.poll();
+        console.log(toSecs(r.latency) + ' secs: ' + r.uri);
+        cnt++;
+      }
     },
     show: () => {
-       console.log('Total Requests: ' + totalCnt);
-       console.log('   Latency Ave: ' + toSecs(divideHrtime(totalLatency, totalCnt)));
-       console.log('   Latency Max: ' + toSecs(max));
-       console.log('   Latency Min: ' + toSecs(min));
+      if (totalCnt === 0) return;
+      console.log('---< ' + title + ' >----------------------------------------------------------');
+      console.log('  Total Requests: ' + totalCnt);
+      console.log('     Latency Ave: ' + toSecs(divideHrtime(totalLatency, totalCnt)));
+      console.log('     Latency Max: ' + toSecs(max));
+      console.log('     Latency Min: ' + toSecs(min));
     }
   };
 };
 
 const report = (results) => {
-  let all = initSummary();
+  let all = initSummary('Total');
+  let ok = initSummary('200');
+  let e3xx = initSummary('3xx');
+  let e4xx = initSummary('404');
+  let e5xx = initSummary('503/504');
+  let e800 = initSummary('Timeout');
+  let e999 = initSummary('Fatal');
+  let other = initSummary('Other');
 
   console.log('-- Printing Results ------------------------------------------------------');
   results.map((r) => {
     console.log(r);
     all.push(r);
+    if (r.statusCode) {
+      if (r.statusCode === 200) {
+        ok.push(r);
+      } else if (r.statusCode === 301 || r.statusCode === 302 || r.statusCode === 304) {
+        e3xx.push(r);
+      } else if (r.statusCode === 404) {
+        e4xx.push(r);
+      } else if (r.statusCode === 503 || r.statusCode === 504) {
+        e5xx.push(r);
+      } else if (r.statusCode === 800) {
+        e800.push(r);
+      } else if (r.statusCode === 999) {
+        e999.push(r);
+      } else {
+        other.push(r);
+      }
+    } else {
+      other.push(r);
+    }
 
   });
-  console.log('-- Printing Summary ------------------------------------------------------');
   all.show();
+  ok.show();
+  e3xx.show();
+  e4xx.show();
+  e5xx.show();
+  e800.show();
+  e999.show();
+  other.show();
+  all.showSlow();
 }
 
 readLinks(filename)
