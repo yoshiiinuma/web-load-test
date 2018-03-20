@@ -33,7 +33,7 @@ var timeout = DEFAULT_TIMEOUT * 1000;
 var rps = DEFAULT_RPS;
 var duration = DEFAULT_DURATION;
 var limit;
-var debug = true;
+var debug = false;
 
 if (process.argv.length > 3) {
   for (let i = 3; i < process.argv.length; i++) {
@@ -169,10 +169,11 @@ const bulkRequest = async (links, opts = {}) => {
     cnt++;
     if (cnt >= limit) loop = false;
     if (loop && cnt > 0 && cnt%rps === 0) {
+      console.log('Current Requests: ' + cnt);
       await sleep(1000);
     }
   }
-  console.log('LOOP EXIT: ' + cnt);
+  console.log('Total Requests: ' + cnt);
   return Promise.all(requests);
 };
 
@@ -238,7 +239,7 @@ const divideHrtime = (hr, n) => {
   return [secs, ns];
 }
 
-const initSummary = (name) => {
+const initSummaryData = (name) => {
   const title = name;
   let totalCnt = 0;
   let totalLatency = [0, 0];
@@ -283,14 +284,14 @@ const initSummary = (name) => {
 };
 
 const report = (results) => {
-  let all = initSummary('Total');
-  let ok = initSummary('200');
-  let e3xx = initSummary('3xx');
-  let e4xx = initSummary('404');
-  let e5xx = initSummary('503/504');
-  let e800 = initSummary('Timeout');
-  let e999 = initSummary('Fatal');
-  let other = initSummary('Other');
+  let all = initSummaryData('Total');
+  let ok = initSummaryData('200');
+  let e3xx = initSummaryData('3xx');
+  let e4xx = initSummaryData('404');
+  let e5xx = initSummaryData('503/504');
+  let e800 = initSummaryData('Timeout');
+  let e999 = initSummaryData('Fatal');
+  let other = initSummaryData('Other');
 
   console.log('-- Printing Results ------------------------------------------------------');
   results.map((r) => {
