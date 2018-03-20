@@ -141,28 +141,29 @@ const makeRequest = ((opts = {}) => {
     seq++;
     return new Promise((resolve, reject) => {
       let reqId = seq;
-      let startTime = process.hrtime();
+      let startTime = getNow();
       let statusCode;
       if (debug) console.log('SENDING: ' + reqId + ' '  + uri);
       rp({ uri, timeout, resolveWithFullResponse: true })
         .then((response) => {
-          let latency = process.hrtime(startTime);
+          let latency = getTimeDiff(startTime);
           statusCode = response.statusCode;
-          if (debug) console.log('  DONE: ' + statusCode + ' ' + reqId + ' ' + uri);
+          if (debug) console.log('  DONE: ' + statusCode + ' ' + toSecs(latency) + ' ' + reqId + ' ' + uri);
           return resolve({ reqId, uri, latency, statusCode });
         })
         .catch(err => {
-          let latency = process.hrtime(startTime);
+          let latency = getTimeDiff(startTime);
           if (err.statusCode) {
             statusCode = err.statusCode;
-            if (debug) console.log('  ERROR: ' + statusCode + ' ' + reqId + ' '  + uri);
+            //if (debug) console.log('  ERROR: ' + statusCode + ' ' + toSecs(latency) + ' ' + reqId + ' '  + uri);
+            console.log('  ERROR: ' + statusCode + ' ' + toSecs(latency) + ' ' + reqId + ' '  + uri);
             //if (statusCode === 503 || statusCode === 504) {
             //  return reject(err);
             //}
             return resolve({ reqId, uri, latency, statusCode });
           } else if (err.name === 'RequestError') {
             statusCode = 800;
-            console.log('  ' + err.message + ': ' + reqId + ' '  + uri);
+            console.log('  ' + err.message + ': ' + toSecs(latency) + ' ' + reqId + ' '  + uri);
             return resolve({ reqId, uri, latency, statusCode });
           } else {
             statusCode = 999;
@@ -170,6 +171,7 @@ const makeRequest = ((opts = {}) => {
             console.log(err);
             console.log(Object.keys(err));
             console.log('=======================');
+            console.log('  FATAL: 999 ' + toSecs(latency) + ' ' + reqId + ' '  + uri);
             //return reject(err);
           }
         });
@@ -194,7 +196,6 @@ const bulkRequest = async (links, opts = {}) => {
 
   while (loop) {
     let link = links[Math.floor(Math.random() * len)];
-    //if (regExclude && regExclude.test(link)) continue;
     requests.push(makeRequest(link));
     cnt++;
     if (cnt >= limit) loop = false;
@@ -208,84 +209,39 @@ const bulkRequest = async (links, opts = {}) => {
 };
 
 /**
- * Returns:
- *    1 if a > b
- *   -1 if a < b
- *    0 if a == b
+ * Retuns currentime in millisecs
  */
-const compareHrtime = (a, b) => {
-  if (a[0] === b[0]) {
-    if (a[1] === b[1]) return 0;
-    if (a[1] > b[1]) {
-      return 1;
-    } else {
-      return -1;
-    }
-  } else if (a[0] > b[0]) {
-    return 1;
-  } else {
-    return -1;
-  }
+const getNow = () => {
+  let now = process.hrtime();
+  return now[0] * 1000 + now[1] / 1000000;
 }
 
+const getTimeDiff = (time_in_ms) => {
+  return getNow() - time_in_ms;
+}
 
-const toSecs = (a) => {
-  let secs = a[0];
-  let ms = Math.floor(a[1] / 1000000);
-  secs += ms / 1000;
-
+const toSecs = (ms) => {
+  let secs = ms / 1000;
   return secs.toFixed(3);
-}
-
-const strHrtime = (a) => {
-  let ms = Math.floor(a[1] / 1000000);
-
-  return '[' + a[0] + ', ' + a[1] + ']';
-}
-
-const addHrtime = (a, b) => {
-  let secs = a[0] + b[0];
-  let ns = a[1] + b[1];
-  let carry = ns - (ns % 1000000000);
-  ns = ns - carry;
-  secs += carry / 1000000000;
-
-  return [secs, ns];
-}
-
-const divideHrtime = (hr, n) => {
-  let secs = hr[0] / n;
-  let ns = hr[1];
-  let ms = secs % 1;
-
-  secs = secs - ms;
-  ms = ms * 1000000;
-  ms = ms - (ms % 1);
-  ns = ns + ms * 1000;
-  ns = ns / n;
-  ns = ns - (ns % 1);
-
-  return [secs, ns];
 }
 
 const initSummaryData = (name) => {
   const title = name;
   let totalCnt = 0;
-  let totalLatency = [0, 0];
-  let max = [0, 0];
-  let min = [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-  //let slow = new FastPriorityQueue((a, b) => { return compareHrtime(a.latency, b.latency) });
-  let slow = new FastPriorityQueue((a, b) => { return toSecs(a.latency) > toSecs(b.latency) });
+  let totalLatency = 0;
+  let max = 0;
+  let min = Number.MAX_SAFE_INTEGER;
+  let slow = new FastPriorityQueue((a, b) => { return a.latency > b.latency });
 
   return {
     push: (r) => {
       let cur = r.latency;
       totalCnt++;
-      totalLatency = addHrtime(totalLatency, cur);
-      if (compareHrtime(min, cur) > 0) {
+      totalLatency += cur;
+      if (cur < min) {
         min = cur;
       }
-      if (compareHrtime(max, cur) < 0) {
+      if (cur > max) {
         max = cur;
       }
       slow.add(r);
@@ -305,7 +261,7 @@ const initSummaryData = (name) => {
       if (totalCnt === 0) return;
       console.log('---< ' + title + ' >----------------------------------------------------------');
       console.log('  Total Requests: ' + totalCnt);
-      console.log('     Latency Ave: ' + toSecs(divideHrtime(totalLatency, totalCnt)));
+      console.log('     Latency Ave: ' + toSecs(totalLatency / totalCnt));
       console.log('     Latency Max: ' + toSecs(max));
       console.log('     Latency Min: ' + toSecs(min));
     }
