@@ -32,11 +32,12 @@ export default (opts = {}) => {
             //if (statusCode === 503 || statusCode === 504) {
             //  return reject(err);
             //}
-            return resolve({ reqId, uri, latency, statusCode });
+            //return resolve({ reqId, uri, latency, statusCode });
+            return resolve({ reqId, uri, latency, statusCode, error: err.message });
           } else if (err.name === 'RequestError') {
             statusCode = 800;
             console.log('  ' + err.message + ': ' + toSecs(latency) + ' ' + reqId + ' '  + uri);
-            return resolve({ reqId, uri, latency, statusCode });
+            return resolve({ reqId, uri, latency, statusCode, error: err.message });
           } else {
             statusCode = 999;
             console.log('=======================');
@@ -44,6 +45,7 @@ export default (opts = {}) => {
             console.log(Object.keys(err));
             console.log('=======================');
             console.log('  FATAL: 999 ' + toSecs(latency) + ' ' + reqId + ' '  + uri);
+            return resolve({ reqId, uri, latency, statusCode, error: err.message });
             //return reject(err);
           }
         });

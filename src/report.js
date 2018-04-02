@@ -8,6 +8,7 @@ const initSummaryData = (name) => {
   let max = 0;
   let min = Number.MAX_SAFE_INTEGER;
   let slow = new FastPriorityQueue((a, b) => { return a.latency > b.latency });
+  let err = {};
 
   return {
     push: (r) => {
@@ -21,6 +22,12 @@ const initSummaryData = (name) => {
         max = cur;
       }
       slow.add(r);
+      if (r.error) {
+        if (!(r.error in err)) {
+          err[r.error] = 0;
+        }
+        err[r.error] += 1;
+      }
     },
     showSlow: (limit = 10) => {
       let cnt = 0;
@@ -31,6 +38,12 @@ const initSummaryData = (name) => {
         let r = slow.poll();
         console.log(toSecs(r.latency) + ' secs: ' + r.uri);
         cnt++;
+      }
+    },
+    showErrorTypes: () => {
+      console.log('---< Error Types >------------------------------------------------------------');
+      for(const [etype, ecnt] of Object.entries(err)) {
+        console.log(etype + ': ' + ecnt);
       }
     },
     show: () => {
@@ -87,4 +100,5 @@ export const report = (results) => {
   e999.show();
   other.show();
   all.showSlow();
+  all.showErrorTypes();
 }
