@@ -33,7 +33,7 @@ export default (opts = {}) => {
             //  return reject(err);
             //}
             //return resolve({ reqId, uri, latency, statusCode });
-            return resolve({ reqId, uri, latency, statusCode, error: err.message });
+            return resolve({ reqId, uri, latency, statusCode, error: err.statusCode });
           } else if (err.name === 'RequestError') {
             statusCode = 800;
             console.log('  ' + err.message + ': ' + toSecs(latency) + ' ' + reqId + ' '  + uri);
