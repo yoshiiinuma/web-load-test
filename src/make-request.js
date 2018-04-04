@@ -4,9 +4,12 @@ import { getNow, getTimeDiff, toSecs } from './measure.js';
 
 const DEFAULT_TIMEOUT = 30;
 
+let rpap = rp.defaults({ pool: { maxSockets: Infinity }, resolveWithFullResponse: true });
+
 export default (opts = {}) => {
   const timeout = opts.timeout || DEFAULT_TIMEOUT;
   const debug = ('debug' in opts) ? opts.debug : false;
+
   let seq = 0;
 
   return (uri) => {
@@ -16,7 +19,7 @@ export default (opts = {}) => {
       let startTime = getNow();
       let statusCode;
       if (debug) console.log('SENDING: ' + reqId + ' '  + uri);
-      rp({ uri, timeout, resolveWithFullResponse: true })
+      rpap({ uri, timeout })
         .then((response) => {
           let latency = getTimeDiff(startTime);
           statusCode = response.statusCode;
