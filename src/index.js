@@ -108,24 +108,6 @@ const readLinks = (file) => {
   });
 };
 
-const randomSelect = (links, limit) => {
-  return new Promise((resolve, reject) => {
-    let len = links.length;
-    if (limit >= len) return resolve(links);
-
-    let i = len;
-    const min = len - limit;
-    while (i > min) {
-      let j = Math.floor(Math.random() * i);
-      i--;
-      let temp =  links[i];
-      links[i] = links[j];
-      links[j] = temp;
-    }
-    return resolve(links.slice(min));
-  });
-};
-
 const filter = (links, regExclude) => {
   return new Promise((resolve, reject) => {
     if (!regExclude) return resolve(links);
@@ -141,7 +123,6 @@ const filter = (links, regExclude) => {
 };
 
 readLinks(filename)
-  //.then((links) => randomSelect(links, numOfUrls))
   .then((links) => filter(links, options.regExclude))
   .then((links) => bulkRequest(links, requestFunc, options))
   .then((results) => { report(results) })
