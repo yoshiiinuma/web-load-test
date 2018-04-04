@@ -2,6 +2,7 @@
 import fs from 'fs';
 import readline from 'readline';
 
+import requestFunc from './make-request.js';
 import { randomRequest, sequentialRequest } from './bulk-request.js';
 import { report } from './report.js';
 
@@ -142,7 +143,7 @@ const filter = (links, regExclude) => {
 readLinks(filename)
   //.then((links) => randomSelect(links, numOfUrls))
   .then((links) => filter(links, options.regExclude))
-  .then((links) => bulkRequest(links, options))
+  .then((links) => bulkRequest(links, requestFunc, options))
   .then((results) => { report(results) })
   .catch((err) => {
     console.log('-----------------------');

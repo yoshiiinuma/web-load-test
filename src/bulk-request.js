@@ -1,10 +1,9 @@
-import requestFunc from './make-request.js';
 
 const sleep = (ms) => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export const randomRequest = async (links, opts = {}) => {
+export const randomRequest = async (links, requestFunc, opts = {}) => {
   const limit = opts.limit || 30;
   const rps = opts.rps || 1;
   const debug = ('debug' in opts) ? opts.debug : false;
@@ -29,7 +28,7 @@ export const randomRequest = async (links, opts = {}) => {
   return Promise.all(requests);
 };
 
-export const sequentialRequest = async (links, opts = {}) => {
+export const sequentialRequest = async (links, requestFunc, opts = {}) => {
   let limit = opts.limit || 30;
   const rps = opts.rps || 1;
   const debug = ('debug' in opts) ? opts.debug : false;
