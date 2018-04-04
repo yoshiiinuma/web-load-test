@@ -3,12 +3,11 @@ const sleep = (ms) => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export const randomRequest = async (links, requestFunc, opts = {}) => {
+export const randomRequest = async (links, makeRequest, opts = {}) => {
   const limit = opts.limit || 30;
   const rps = opts.rps || 1;
   const debug = ('debug' in opts) ? opts.debug : false;
   const len = links.length;
-  const makeRequest = requestFunc(opts);
 
   let requests = [];
   let loop = true;
@@ -28,12 +27,11 @@ export const randomRequest = async (links, requestFunc, opts = {}) => {
   return Promise.all(requests);
 };
 
-export const sequentialRequest = async (links, requestFunc, opts = {}) => {
+export const sequentialRequest = async (links, makeRequest, opts = {}) => {
   let limit = opts.limit || 30;
   const rps = opts.rps || 1;
   const debug = ('debug' in opts) ? opts.debug : false;
   const len = links.length;
-  const makeRequest = requestFunc(opts);
 
   let requests = [];
   let loop = true;

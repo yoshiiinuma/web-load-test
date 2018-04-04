@@ -2,7 +2,7 @@
 import fs from 'fs';
 import readline from 'readline';
 
-import requestFunc from './make-request.js';
+import createRequestFunc from './make-request.js';
 import { randomRequest, sequentialRequest } from './bulk-request.js';
 import { report } from './report.js';
 
@@ -122,9 +122,11 @@ const filter = (links, regExclude) => {
   });
 };
 
+const makeRequest = createRequestFunc(options);
+
 readLinks(filename)
   .then((links) => filter(links, options.regExclude))
-  .then((links) => bulkRequest(links, requestFunc, options))
+  .then((links) => bulkRequest(links, makeRequest, options))
   .then((results) => { report(results) })
   .catch((err) => {
     console.log('-----------------------');
