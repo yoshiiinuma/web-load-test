@@ -1,7 +1,7 @@
 {
   "name": "web-load-test",
   "version": "1.0.0",
-  "description": "Web-Load-Test is designed to test the performance of a website under load, simulating a heaby load on the server",
+  "description": "Web-Load-Test is designed to test the performance of a website under load, simulating a heavy load on the server",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
